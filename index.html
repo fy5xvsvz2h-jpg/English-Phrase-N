@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English Phrase Player</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f1117;
+      color: #e8eaf0;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 14px 20px;
+      background: #1a1d27;
+      border-bottom: 1px solid #2a2d3a;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1rem; font-weight: 600; color: #7c8cf8; }
+    #phrase-count { font-size: 0.8rem; color: #6b7280; margin-left: auto; }
+
+    /* ── Now Playing Panel ── */
+    #now-playing {
+      background: #1a1d27;
+      border-bottom: 1px solid #2a2d3a;
+      padding: 20px 24px;
+      flex-shrink: 0;
+    }
+    #now-playing.empty { display: none; }
+
+    #np-english {
+      font-size: 1.4rem;
+      font-weight: 600;
+      line-height: 1.4;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+    #np-japanese {
+      font-size: 1rem;
+      color: #9ca3af;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ctrl-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #9ca3af;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .ctrl-btn:hover { color: #e8eaf0; background: #2a2d3a; }
+    .ctrl-btn:disabled { opacity: 0.3; cursor: default; }
+    .ctrl-btn:disabled:hover { background: none; color: #9ca3af; }
+
+    #play-pause-btn {
+      background: #7c8cf8;
+      color: #fff;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    #play-pause-btn:hover { background: #6475f0; color: #fff; }
+
+    /* Progress */
+    .progress-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    #progress {
+      width: 100%;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #2a2d3a;
+      border-radius: 2px;
+      cursor: pointer;
+      outline: none;
+    }
+    #progress::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #7c8cf8;
+      cursor: pointer;
+    }
+    #progress::-moz-range-thumb {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #7c8cf8;
+      border: none;
+      cursor: pointer;
+    }
+    .time-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: #6b7280;
+    }
+
+    /* Repeat toggle */
+    #repeat-btn.active { color: #7c8cf8; }
+
+    /* ── Phrase List ── */
+    #list-wrap {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+    #list-wrap::-webkit-scrollbar { width: 6px; }
+    #list-wrap::-webkit-scrollbar-track { background: transparent; }
+    #list-wrap::-webkit-scrollbar-thumb { background: #2a2d3a; border-radius: 3px; }
+
+    .phrase-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background 0.1s;
+    }
+    .phrase-item:hover { background: #1a1d27; }
+    .phrase-item.active {
+      background: #1e2235;
+      border-left-color: #7c8cf8;
+    }
+
+    .phrase-num {
+      font-size: 0.75rem;
+      color: #4b5563;
+      width: 36px;
+      flex-shrink: 0;
+      padding-top: 2px;
+      text-align: right;
+    }
+    .phrase-item.active .phrase-num { color: #7c8cf8; }
+
+    .phrase-text { flex: 1; min-width: 0; }
+    .phrase-en {
+      font-size: 0.9rem;
+      color: #d1d5db;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .phrase-item.active .phrase-en { color: #ffffff; }
+    .phrase-ja {
+      font-size: 0.78rem;
+      color: #6b7280;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .phrase-play-btn {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #4b5563;
+      display: flex;
+      align-items: center;
+      padding: 4px;
+      border-radius: 50%;
+      transition: color 0.15s, background 0.15s;
+      opacity: 0;
+    }
+    .phrase-item:hover .phrase-play-btn,
+    .phrase-item.active .phrase-play-btn { opacity: 1; }
+    .phrase-play-btn:hover { color: #7c8cf8; background: #2a2d3a; }
+    .phrase-item.active .phrase-play-btn { color: #7c8cf8; }
+
+    /* Loading / Error */
+    #status-msg {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6b7280;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7c8cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+  </svg>
+  <h1>English Phrase Player</h1>
+  <span id="phrase-count"></span>
+</header>
+
+<!-- Now Playing -->
+<section id="now-playing" class="empty">
+  <div id="np-english">—</div>
+  <div id="np-japanese">—</div>
+  <div class="controls">
+    <button class="ctrl-btn" id="prev-btn" title="前へ">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+    </button>
+    <button class="ctrl-btn" id="play-pause-btn" title="再生/一時停止">
+      <svg id="icon-play" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="icon-pause" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
+    </button>
+    <button class="ctrl-btn" id="next-btn" title="次へ">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zm2-8.14L11.03 12 8 14.14V9.86zM16 6h2v12h-2z"/></svg>
+    </button>
+    <div class="progress-wrap">
+      <input type="range" id="progress" value="0" min="0" max="100" step="0.1">
+      <div class="time-row">
+        <span id="time-current">0:00</span>
+        <span id="time-total">0:00</span>
+      </div>
+    </div>
+    <button class="ctrl-btn" id="repeat-btn" title="リピート">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="17 1 21 5 17 9"/>
+        <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+        <polyline points="7 23 3 19 7 15"/>
+        <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+      </svg>
+    </button>
+  </div>
+</section>
+
+<!-- Phrase List -->
+<div id="list-wrap">
+  <div id="status-msg">読み込み中…</div>
+  <ul id="phrase-list" style="list-style:none;"></ul>
+</div>
+
+<audio id="audio"></audio>
+
+<script>
+  const audio = document.getElementById('audio');
+  const npEnglish = document.getElementById('np-english');
+  const npJapanese = document.getElementById('np-japanese');
+  const nowPlaying = document.getElementById('now-playing');
+  const phraseList = document.getElementById('phrase-list');
+  const statusMsg = document.getElementById('status-msg');
+  const phraseCount = document.getElementById('phrase-count');
+  const progress = document.getElementById('progress');
+  const timeCurrent = document.getElementById('time-current');
+  const timeTotal = document.getElementById('time-total');
+  const playPauseBtn = document.getElementById('play-pause-btn');
+  const iconPlay = document.getElementById('icon-play');
+  const iconPause = document.getElementById('icon-pause');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
+  const repeatBtn = document.getElementById('repeat-btn');
+
+  let phrases = [];
+  let currentIndex = -1;
+  let repeatMode = false;
+
+  // ── CSV Parser ──
+  function parseCSV(text) {
+    const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    const result = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      const cols = splitCSVLine(line);
+      if (cols.length >= 3) {
+        result.push({ track: cols[0].trim(), ja: cols[1].trim(), en: cols[2].trim() });
+      }
+    }
+    return result;
+  }
+
+  function splitCSVLine(line) {
+    const cols = [];
+    let cur = '';
+    let inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
+        else { inQuote = !inQuote; }
+      } else if (ch === ',' && !inQuote) {
+        cols.push(cur); cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    cols.push(cur);
+    return cols;
+  }
+
+  // ── Render list ──
+  function renderList() {
+    phraseList.innerHTML = '';
+    phrases.forEach((p, i) => {
+      const li = document.createElement('li');
+      li.className = 'phrase-item';
+      li.dataset.index = i;
+      li.innerHTML = `
+        <span class="phrase-num">${i + 1}</span>
+        <div class="phrase-text">
+          <div class="phrase-en" title="${escHtml(p.en)}">${escHtml(p.en)}</div>
+          <div class="phrase-ja" title="${escHtml(p.ja)}">${escHtml(p.ja)}</div>
+        </div>
+        <button class="phrase-play-btn" title="再生" aria-label="再生">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+      `;
+      li.addEventListener('click', () => selectPhrase(i, true));
+      phraseList.appendChild(li);
+    });
+    phraseCount.textContent = `${phrases.length} フレーズ`;
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── Playback ──
+  function selectPhrase(index, autoPlay = false) {
+    currentIndex = index;
+    const p = phrases[index];
+
+    // Update panel
+    npEnglish.textContent = p.en;
+    npJapanese.textContent = p.ja;
+    nowPlaying.classList.remove('empty');
+
+    // Update audio src
+    audio.src = `audio/${p.track}`;
+    audio.load();
+
+    // Highlight list item
+    document.querySelectorAll('.phrase-item').forEach((el, i) => {
+      el.classList.toggle('active', i === index);
+    });
+
+    // Scroll item into view
+    const activeEl = phraseList.children[index];
+    if (activeEl) activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+    prevBtn.disabled = index === 0;
+    nextBtn.disabled = index === phrases.length - 1;
+
+    if (autoPlay) audio.play();
+  }
+
+  function setPlayingUI(playing) {
+    iconPlay.style.display = playing ? 'none' : '';
+    iconPause.style.display = playing ? '' : 'none';
+  }
+
+  playPauseBtn.addEventListener('click', () => {
+    if (currentIndex === -1 && phrases.length > 0) { selectPhrase(0, true); return; }
+    if (audio.paused) audio.play(); else audio.pause();
+  });
+
+  prevBtn.addEventListener('click', () => {
+    if (currentIndex > 0) selectPhrase(currentIndex - 1, true);
+  });
+
+  nextBtn.addEventListener('click', () => {
+    if (currentIndex < phrases.length - 1) selectPhrase(currentIndex + 1, true);
+  });
+
+  repeatBtn.addEventListener('click', () => {
+    repeatMode = !repeatMode;
+    repeatBtn.classList.toggle('active', repeatMode);
+  });
+
+  audio.addEventListener('play', () => setPlayingUI(true));
+  audio.addEventListener('pause', () => setPlayingUI(false));
+  audio.addEventListener('ended', () => {
+    setPlayingUI(false);
+    if (repeatMode) {
+      audio.play();
+    } else if (currentIndex < phrases.length - 1) {
+      selectPhrase(currentIndex + 1, true);
+    }
+  });
+
+  // Progress bar
+  audio.addEventListener('timeupdate', () => {
+    if (!audio.duration) return;
+    progress.value = (audio.currentTime / audio.duration) * 100;
+    timeCurrent.textContent = fmtTime(audio.currentTime);
+  });
+  audio.addEventListener('durationchange', () => {
+    timeTotal.textContent = fmtTime(audio.duration);
+  });
+  progress.addEventListener('input', () => {
+    if (audio.duration) audio.currentTime = (progress.value / 100) * audio.duration;
+  });
+
+  function fmtTime(sec) {
+    if (!isFinite(sec)) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  // ── Load CSV ──
+  fetch('audio/PhraseList.csv')
+    .then(r => { if (!r.ok) throw new Error(r.statusText); return r.text(); })
+    .then(text => {
+      // Strip BOM
+      const clean = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+      phrases = parseCSV(clean);
+      statusMsg.style.display = 'none';
+      renderList();
+    })
+    .catch(err => {
+      statusMsg.textContent = `CSVの読み込みに失敗しました: ${err.message}`;
+    });
+</script>
+</body>
+</html>
